@@ -141,9 +141,12 @@ class NWSAlertBot(commands.Bot):
             headers={"User-Agent": "(NWSStClairBot, Discord Weather Alert Bot)"}
         )
         self.check_alerts.start()
-        # Sync slash commands
-        await self.tree.sync()
-        print("Slash commands synced!")
+        # Sync slash commands globally
+        try:
+            synced = await self.tree.sync()
+            print(f"Synced {len(synced)} slash command(s) globally")
+        except Exception as e:
+            print(f"Failed to sync commands: {e}")
 
     async def close(self):
         """Cleanup when bot shuts down."""
@@ -157,6 +160,8 @@ class NWSAlertBot(commands.Bot):
         print(f"Monitoring NWS alerts for zone: {NWS_ZONE}")
         print(f"Connected to {len(self.guilds)} server(s)")
         print(f"Alert channels configured: {len(self.server_config)}")
+        for guild in self.guilds:
+            print(f"  - {guild.name} (ID: {guild.id})")
 
     async def fetch_alerts(self) -> list:
         """Fetch current alerts from NWS API for our zone."""
@@ -369,6 +374,17 @@ class NWSAlertBot(commands.Bot):
 
 # Bot instance
 bot = NWSAlertBot()
+
+
+# Global error handler for slash commands
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    """Handle errors in slash commands."""
+    print(f"Command error: {error}")
+    if interaction.response.is_done():
+        await interaction.followup.send(f"An error occurred: {error}", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"An error occurred: {error}", ephemeral=True)
 
 
 # Weather condition emojis for forecast
@@ -635,10 +651,17 @@ async def slash_status(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name="test", description="Send a test alert embed (Admin only)")
-@app_commands.default_permissions(administrator=True)
+@bot.tree.command(name="test", description="Send a test alert embed (Manage Server required)")
+@app_commands.guild_only()
 async def slash_test(interaction: discord.Interaction):
-    """Send a test alert embed (Admin only)."""
+    """Send a test alert embed (Manage Server required)."""
+    # Check for Manage Server permission
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message(
+            "You need Manage Server permission to use this command.", ephemeral=True
+        )
+        return
+
     embed = discord.Embed(
         title="\u26A0\uFE0F Test Alert",
         description="This is a test alert to verify the bot is working correctly.",
@@ -651,36 +674,46 @@ async def slash_test(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name="setchannel", description="Set the channel for weather alerts (Admin only)")
+@bot.tree.command(name="setchannel", description="Set the channel for weather alerts (Manage Server required)")
 @app_commands.describe(channel="The channel where weather alerts will be posted")
-@app_commands.default_permissions(administrator=True)
+@app_commands.guild_only()
 async def slash_setchannel(interaction: discord.Interaction, channel: discord.TextChannel):
     """Set the alert channel for this server."""
-    if not interaction.guild:
-        await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
-        return
+    try:
+        # Check for Manage Server permission
+        if not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message(
+                "You need Manage Server permission to use this command.", ephemeral=True
+            )
+            return
 
-    bot.set_alert_channel(interaction.guild.id, channel.id)
+        bot.set_alert_channel(interaction.guild.id, channel.id)
 
-    embed = discord.Embed(
-        title="\u2705 Alert Channel Configured",
-        description=f"Weather alerts will now be posted to {channel.mention}",
-        color=0x00FF00,
-        timestamp=datetime.now(timezone.utc)
-    )
-    embed.add_field(name="Zone", value=f"{NWS_ZONE} (St. Clair County, MI)", inline=True)
-    embed.add_field(name="Check Interval", value=f"Every {CHECK_INTERVAL_SECONDS} seconds", inline=True)
-    embed.set_footer(text="Use /removechannel to stop receiving alerts")
-    await interaction.response.send_message(embed=embed)
-    print(f"Alert channel set for {interaction.guild.name}: #{channel.name}")
+        embed = discord.Embed(
+            title="\u2705 Alert Channel Configured",
+            description=f"Weather alerts will now be posted to {channel.mention}",
+            color=0x00FF00,
+            timestamp=datetime.now(timezone.utc)
+        )
+        embed.add_field(name="Zone", value=f"{NWS_ZONE} (St. Clair County, MI)", inline=True)
+        embed.add_field(name="Check Interval", value=f"Every {CHECK_INTERVAL_SECONDS} seconds", inline=True)
+        embed.set_footer(text="Use /removechannel to stop receiving alerts")
+        await interaction.response.send_message(embed=embed)
+        print(f"Alert channel set for {interaction.guild.name}: #{channel.name}")
+    except Exception as e:
+        print(f"Error in setchannel command: {e}")
+        await interaction.response.send_message(f"Error setting channel: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="removechannel", description="Stop receiving weather alerts in this server (Admin only)")
-@app_commands.default_permissions(administrator=True)
+@bot.tree.command(name="removechannel", description="Stop receiving weather alerts in this server (Manage Server required)")
+@app_commands.guild_only()
 async def slash_removechannel(interaction: discord.Interaction):
     """Remove the alert channel configuration for this server."""
-    if not interaction.guild:
-        await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+    # Check for Manage Server permission
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message(
+            "You need Manage Server permission to use this command.", ephemeral=True
+        )
         return
 
     if bot.remove_alert_channel(interaction.guild.id):

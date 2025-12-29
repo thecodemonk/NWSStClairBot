@@ -80,14 +80,14 @@ Once the bot is running and invited to your server:
 | `/discussion` | Get the Area Forecast Discussion (technical analysis) |
 | `/status` | Display bot status and monitoring info |
 
-### Admin Commands
+### Server Management Commands
 
 | Command | Description |
 |---------|-------------|
-| `/setchannel #channel` | Set the channel for weather alerts (Admin only) |
-| `/removechannel` | Stop receiving alerts in this server (Admin only) |
+| `/setchannel #channel` | Set the channel for weather alerts (Manage Server required) |
+| `/removechannel` | Stop receiving alerts in this server (Manage Server required) |
 | `/channelinfo` | Show current alert channel configuration |
-| `/test` | Send a test alert embed (Admin only) |
+| `/test` | Send a test alert embed (Manage Server required) |
 
 **Note:** Slash commands sync automatically when the bot starts. It may take a few minutes for them to appear in Discord after the first run.
 
