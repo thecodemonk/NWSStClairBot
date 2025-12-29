@@ -26,6 +26,10 @@ NWS_GRID_Y = 65
 NWS_API_BASE = "https://api.weather.gov"
 CHECK_INTERVAL_SECONDS = 60  # How often to check for new alerts
 
+# Radar URLs (Detroit KDTX radar covers St. Clair County)
+NWS_RADAR_GIF = "https://radar.weather.gov/ridge/standard/KDTX_loop.gif"
+NWS_RADAR_URL = "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOiJsb2NhbCIsImNlbnRlciI6Wy04Mi42NSw0Mi45N10sInpvb20iOjh9fQ%3D%3D"
+
 # Data files
 POSTED_ALERTS_FILE = Path("posted_alerts.json")
 SERVER_CONFIG_FILE = Path("server_config.json")
@@ -322,6 +326,16 @@ class NWSAlertBot(commands.Bot):
                 embed.add_field(name="Expires", value=expires, inline=True)
 
         embed.add_field(name="Severity", value=severity, inline=True)
+
+        # Add radar link
+        embed.add_field(
+            name="Radar",
+            value=f"[View Live Radar]({NWS_RADAR_URL})",
+            inline=True
+        )
+
+        # Add animated radar GIF
+        embed.set_image(url=NWS_RADAR_GIF)
 
         # Add NWS attribution
         embed.set_footer(text="Source: National Weather Service")
@@ -680,6 +694,12 @@ async def slash_test(interaction: discord.Interaction):
     )
     embed.add_field(name="Description", value="If you can see this message, the bot is configured correctly and can post alerts to this channel.", inline=False)
     embed.add_field(name="Zone", value=f"{NWS_ZONE} (St. Clair County, MI)", inline=True)
+    embed.add_field(
+        name="Radar",
+        value=f"[View Live Radar]({NWS_RADAR_URL})",
+        inline=True
+    )
+    embed.set_image(url=NWS_RADAR_GIF)
     embed.set_footer(text="Source: Test - National Weather Service Bot")
     await interaction.response.send_message(embed=embed)
 
