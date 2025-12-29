@@ -141,10 +141,20 @@ class NWSAlertBot(commands.Bot):
             headers={"User-Agent": "(NWSStClairBot, Discord Weather Alert Bot)"}
         )
         self.check_alerts.start()
-        # Sync slash commands globally
+
+        # Sync slash commands
         try:
+            # Sync globally
             synced = await self.tree.sync()
             print(f"Synced {len(synced)} slash command(s) globally")
+            for cmd in synced:
+                print(f"  - /{cmd.name}")
+
+            # Also sync to specific guild for instant updates
+            test_guild = discord.Object(id=1404895170792526025)
+            self.tree.copy_global_to(guild=test_guild)
+            guild_synced = await self.tree.sync(guild=test_guild)
+            print(f"Synced {len(guild_synced)} command(s) to guild 1404895170792526025")
         except Exception as e:
             print(f"Failed to sync commands: {e}")
 
@@ -728,6 +738,26 @@ async def slash_removechannel(interaction: discord.Interaction):
         print(f"Alert channel removed for {interaction.guild.name}")
     else:
         await interaction.response.send_message("No alert channel was configured for this server.", ephemeral=True)
+
+
+@bot.tree.command(name="sync", description="Force sync slash commands (Bot owner only)")
+@app_commands.guild_only()
+async def slash_sync(interaction: discord.Interaction):
+    """Force sync slash commands to this guild."""
+    # Only allow the server owner or bot owner to use this
+    if interaction.user.id != interaction.guild.owner_id:
+        await interaction.response.send_message("Only the server owner can use this command.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        # Sync to this specific guild for instant update
+        bot.tree.copy_global_to(guild=interaction.guild)
+        synced = await bot.tree.sync(guild=interaction.guild)
+        await interaction.followup.send(f"Synced {len(synced)} commands to this server:\n" + "\n".join(f"- /{cmd.name}" for cmd in synced))
+    except Exception as e:
+        await interaction.followup.send(f"Failed to sync: {e}")
 
 
 @bot.tree.command(name="channelinfo", description="Show the current alert channel configuration")
