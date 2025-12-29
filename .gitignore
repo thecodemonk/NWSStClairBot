@@ -1,0 +1,21 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# Data files (generated at runtime)
+server_config.json
+posted_alerts.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
