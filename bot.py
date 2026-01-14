@@ -10,6 +10,7 @@ import aiohttp
 import asyncio
 import os
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
@@ -334,8 +335,8 @@ class NWSAlertBot(commands.Bot):
             inline=True
         )
 
-        # Add animated radar GIF
-        embed.set_image(url=NWS_RADAR_GIF)
+        # Add animated radar GIF (with cache-busting timestamp)
+        embed.set_image(url=f"{NWS_RADAR_GIF}?t={int(time.time())}")
 
         # Add NWS attribution
         embed.set_footer(text="Source: National Weather Service")
@@ -699,7 +700,7 @@ async def slash_test(interaction: discord.Interaction):
         value=f"[View Live Radar]({NWS_RADAR_URL})",
         inline=True
     )
-    embed.set_image(url=NWS_RADAR_GIF)
+    embed.set_image(url=f"{NWS_RADAR_GIF}?t={int(time.time())}")
     embed.set_footer(text="Source: Test - National Weather Service Bot")
     await interaction.response.send_message(embed=embed)
 
