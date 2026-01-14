@@ -34,7 +34,9 @@ Main bot class that handles:
 
 1. `check_alerts()` task loop runs every 60 seconds
 2. Fetches active alerts from NWS API for zone `MIC147` (St. Clair County)
-3. For each new alert:
+3. Compares current alerts with `active_alert_ids` from previous check
+4. If alerts were active but now cleared, posts all-clear notification via `post_all_clear()`
+5. For each new alert:
    - Creates formatted Discord embed via `create_alert_embed()`
    - Determines if @everyone ping needed (Extreme severity or specific events)
    - Posts to all configured guild channels
