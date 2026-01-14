@@ -78,6 +78,7 @@ class NWSAlertBot(commands.Bot):
         self.server_config = self.load_server_config()
         self.session = None
         self.active_alert_ids = set()  # Track currently active alerts
+        self.alert_message_ids = {}  # Track posted message IDs per channel for deletion
 
     def load_posted_alerts(self) -> set:
         """Load previously posted alert IDs from file."""
@@ -392,8 +393,12 @@ class NWSAlertBot(commands.Bot):
                     channel = self.get_channel(channel_id)
                     if channel:
                         try:
-                            await channel.send(content=content, embed=embed)
+                            message = await channel.send(content=content, embed=embed)
                             posted_successfully = True
+                            # Track message ID for later deletion
+                            if channel_id not in self.alert_message_ids:
+                                self.alert_message_ids[channel_id] = []
+                            self.alert_message_ids[channel_id].append(message.id)
                             print(f"Posted alert to {channel.guild.name}: {event}")
                         except discord.DiscordException as e:
                             print(f"Error posting alert to channel {channel_id}: {e}")
@@ -408,6 +413,24 @@ class NWSAlertBot(commands.Bot):
 
     async def post_all_clear(self, alert_channels: list[int]):
         """Post an all-clear message when all weather alerts have expired."""
+        # Delete previous alert messages from each channel
+        for channel_id in alert_channels:
+            channel = self.get_channel(channel_id)
+            if channel and channel_id in self.alert_message_ids:
+                for message_id in self.alert_message_ids[channel_id]:
+                    try:
+                        message = await channel.fetch_message(message_id)
+                        await message.delete()
+                        print(f"Deleted alert message {message_id} from {channel.guild.name}")
+                    except discord.NotFound:
+                        print(f"Message {message_id} already deleted or not found")
+                    except discord.DiscordException as e:
+                        print(f"Error deleting message {message_id}: {e}")
+
+        # Clear tracked message IDs
+        self.alert_message_ids.clear()
+
+        # Post the all-clear embed
         embed = discord.Embed(
             title="\u2705 All Weather Alerts Cleared",
             description="All active weather alerts for St. Clair County have expired or been cancelled. No active warnings at this time.",
