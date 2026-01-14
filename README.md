@@ -36,6 +36,7 @@ In the Discord Developer Portal under **Bot**:
    - Embed Links
    - Mention Everyone (for severe alerts)
    - Read Message History
+   - Manage Messages (to delete alerts when cleared)
 4. Copy the generated URL and open it to invite the bot
 
 ### 4. Configure the Bot
