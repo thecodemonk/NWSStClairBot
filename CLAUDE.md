@@ -35,11 +35,14 @@ Main bot class that handles:
 1. `check_alerts()` task loop runs every 60 seconds
 2. Fetches active alerts from NWS API for zone `MIC147` (St. Clair County)
 3. Compares current alerts with `active_alert_ids` from previous check
-4. If alerts were active but now cleared, posts all-clear notification via `post_all_clear()`
+4. If alerts were active but now cleared:
+   - Deletes all previous alert messages (tracked in `alert_message_ids`)
+   - Posts all-clear notification via `post_all_clear()`
 5. For each new alert:
    - Creates formatted Discord embed via `create_alert_embed()`
    - Determines if @everyone ping needed (Extreme severity or specific events)
    - Posts to all configured guild channels
+   - Tracks message ID in `alert_message_ids` for later deletion
    - Tracks alert ID to prevent re-posting
 
 ### API Endpoints Used
@@ -56,6 +59,8 @@ All fetch methods hit `api.weather.gov`:
 9 commands registered - weather info (`/alerts`, `/forecast`, `/hourly`, `/outlook`, `/discussion`, `/status`) and server management (`/setchannel`, `/removechannel`, `/channelinfo`, `/test`, `/sync`).
 
 Management commands require `manage_guild` permission. `/sync` is restricted to server owner.
+
+Bot requires "Manage Messages" permission in alert channels to delete old alerts when all-clear is posted.
 
 ### Configuration Constants
 
