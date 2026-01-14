@@ -77,6 +77,7 @@ class NWSAlertBot(commands.Bot):
         self.posted_alerts = self.load_posted_alerts()
         self.server_config = self.load_server_config()
         self.session = None
+        self.active_alert_ids = set()  # Track currently active alerts
 
     def load_posted_alerts(self) -> set:
         """Load previously posted alert IDs from file."""
@@ -354,6 +355,20 @@ class NWSAlertBot(commands.Bot):
 
         alerts = await self.fetch_alerts()
 
+        # Get current active alert IDs
+        current_alert_ids = set()
+        for alert in alerts:
+            alert_id = alert.get("properties", {}).get("id", "")
+            if alert_id:
+                current_alert_ids.add(alert_id)
+
+        # Check if all alerts have cleared
+        if self.active_alert_ids and not current_alert_ids:
+            await self.post_all_clear(alert_channels)
+
+        # Update active alerts tracking
+        self.active_alert_ids = current_alert_ids
+
         for alert in alerts:
             alert_id = alert.get("properties", {}).get("id", "")
 
@@ -390,6 +405,32 @@ class NWSAlertBot(commands.Bot):
                     self.posted_alerts.add(alert_id)
                     self.save_posted_alerts()
                     print(f"Alert tracked: {alert_id}")
+
+    async def post_all_clear(self, alert_channels: list[int]):
+        """Post an all-clear message when all weather alerts have expired."""
+        embed = discord.Embed(
+            title="\u2705 All Weather Alerts Cleared",
+            description="All active weather alerts for St. Clair County have expired or been cancelled. No active warnings at this time.",
+            color=0x00FF00,
+            timestamp=datetime.now(timezone.utc)
+        )
+        embed.add_field(name="Zone", value=f"{NWS_ZONE} (St. Clair County, MI)", inline=True)
+        embed.add_field(
+            name="Radar",
+            value=f"[View Live Radar]({NWS_RADAR_URL})",
+            inline=True
+        )
+        embed.set_image(url=f"{NWS_RADAR_GIF}?t={int(time.time())}")
+        embed.set_footer(text="Source: National Weather Service")
+
+        for channel_id in alert_channels:
+            channel = self.get_channel(channel_id)
+            if channel:
+                try:
+                    await channel.send(embed=embed)
+                    print(f"Posted all-clear to {channel.guild.name}")
+                except discord.DiscordException as e:
+                    print(f"Error posting all-clear to channel {channel_id}: {e}")
 
     @check_alerts.before_loop
     async def before_check_alerts(self):
