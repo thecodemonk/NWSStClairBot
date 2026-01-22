@@ -64,9 +64,11 @@ All fetch methods hit `api.weather.gov`:
 
 ### Slash Commands
 
-9 commands registered - weather info (`/alerts`, `/forecast`, `/hourly`, `/outlook`, `/discussion`, `/status`) and server management (`/setchannel`, `/removechannel`, `/channelinfo`, `/test`, `/sync`).
+10 commands registered - weather info (`/alerts`, `/forecast`, `/hourly`, `/outlook`, `/discussion`, `/status`) and server management (`/setchannel`, `/removechannel`, `/channelinfo`, `/test`, `/sync`, `/reset`).
 
-Management commands require `manage_guild` permission. `/sync` is restricted to server owner.
+Management commands require `manage_guild` permission. `/sync` and `/reset` are restricted to server owner.
+
+`/reset` clears all tracking data (posted alerts, message IDs, active alert state) and triggers an immediate alert recheck, causing current alerts to be reposted.
 
 Bot requires "Manage Messages" permission in alert channels to delete old alerts when all-clear is posted.
 

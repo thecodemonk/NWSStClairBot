@@ -912,6 +912,41 @@ async def slash_sync(interaction: discord.Interaction):
         await interaction.followup.send(f"Failed to sync: {e}")
 
 
+@bot.tree.command(name="reset", description="Clear all tracking data and repost current alerts (Server owner only)")
+@app_commands.guild_only()
+async def slash_reset(interaction: discord.Interaction):
+    """Reset alert tracking and trigger immediate recheck."""
+    # Only allow the server owner to use this
+    if interaction.user.id != interaction.guild.owner_id:
+        await interaction.response.send_message("Only the server owner can use this command.", ephemeral=True)
+        return
+
+    await interaction.response.defer()
+
+    # Clear all tracking data
+    bot.posted_alerts.clear()
+    bot.save_posted_alerts()
+    bot.alert_message_ids.clear()
+    bot.all_clear_message_ids.clear()
+    bot.active_alert_ids.clear()
+    bot.save_message_tracking()
+
+    # Trigger immediate alert check
+    await bot.check_alerts()
+
+    embed = discord.Embed(
+        title="\U0001F504 Bot Reset Complete",
+        description="All tracking data cleared and alerts rechecked.",
+        color=0x00FF00,
+        timestamp=datetime.now(timezone.utc)
+    )
+    embed.add_field(name="Cleared", value="• Posted alerts history\n• Message tracking\n• Active alert state", inline=False)
+    embed.add_field(name="Action", value="Current alerts have been reposted to all configured channels.", inline=False)
+    embed.set_footer(text=f"Zone: {NWS_ZONE}")
+    await interaction.followup.send(embed=embed)
+    print(f"Bot reset triggered by {interaction.user.name} in {interaction.guild.name}")
+
+
 @bot.tree.command(name="channelinfo", description="Show the current alert channel configuration")
 async def slash_channelinfo(interaction: discord.Interaction):
     """Show the current alert channel for this server."""
