@@ -34,16 +34,23 @@ Main bot class that handles:
 
 1. `check_alerts()` task loop runs every 60 seconds
 2. Fetches active alerts from NWS API for zone `MIC147` (St. Clair County)
-3. Compares current alerts with `active_alert_ids` from previous check
-4. If alerts were active but now cleared:
+3. If API returns error (non-200 or exception), skips cycle entirely to prevent false all-clear
+4. Compares current alerts with `active_alert_ids` from previous check
+5. If alerts were active but now cleared:
    - Deletes all previous alert messages (tracked in `alert_message_ids`)
    - Posts all-clear notification via `post_all_clear()`
-5. For each new alert:
+   - Tracks all-clear message ID in `all_clear_message_ids`
+6. For each new alert:
+   - Deletes any existing all-clear messages first
    - Creates formatted Discord embed via `create_alert_embed()`
    - Determines if @everyone ping needed (Extreme severity or specific events)
    - Posts to all configured guild channels
    - Tracks message ID in `alert_message_ids` for later deletion
    - Tracks alert ID to prevent re-posting
+
+### API Error Handling
+
+`fetch_alerts()` returns `None` on API errors instead of an empty list. This prevents the bot from incorrectly interpreting an API failure as "no active alerts" and triggering a false all-clear that would delete valid alert messages.
 
 ### API Endpoints Used
 
