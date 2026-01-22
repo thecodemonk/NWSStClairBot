@@ -81,6 +81,7 @@ Hardcoded in `bot.py`:
 
 - `server_config.json` - Guild ID → Channel ID mapping
 - `posted_alerts.json` - List of posted alert IDs
+- `message_tracking.json` - Tracks alert and all-clear message IDs for deletion (persists across restarts)
 
 ## Environment
 

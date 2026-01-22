@@ -34,6 +34,7 @@ NWS_RADAR_URL = "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOiJs
 # Data files
 POSTED_ALERTS_FILE = Path("posted_alerts.json")
 SERVER_CONFIG_FILE = Path("server_config.json")
+MESSAGE_TRACKING_FILE = Path("message_tracking.json")
 
 # NWS Alert severity colors for embeds
 SEVERITY_COLORS = {
@@ -79,8 +80,9 @@ class NWSAlertBot(commands.Bot):
         self.server_config = self.load_server_config()
         self.session = None
         self.active_alert_ids = set()  # Track currently active alerts
-        self.alert_message_ids = {}  # Track posted message IDs per channel for deletion
-        self.all_clear_message_ids = {}  # Track all-clear message IDs per channel for deletion
+        message_tracking = self.load_message_tracking()
+        self.alert_message_ids = message_tracking.get("alert_messages", {})
+        self.all_clear_message_ids = message_tracking.get("all_clear_messages", {})
 
     def load_posted_alerts(self) -> set:
         """Load previously posted alert IDs from file."""
@@ -113,6 +115,25 @@ class NWSAlertBot(commands.Bot):
         """Save server configuration to file."""
         with open(SERVER_CONFIG_FILE, "w") as f:
             json.dump(self.server_config, f, indent=2)
+
+    def load_message_tracking(self) -> dict:
+        """Load message tracking data from file."""
+        if MESSAGE_TRACKING_FILE.exists():
+            try:
+                with open(MESSAGE_TRACKING_FILE, "r") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                return {}
+        return {}
+
+    def save_message_tracking(self):
+        """Save message tracking data to file."""
+        data = {
+            "alert_messages": self.alert_message_ids,
+            "all_clear_messages": self.all_clear_message_ids
+        }
+        with open(MESSAGE_TRACKING_FILE, "w") as f:
+            json.dump(data, f, indent=2)
 
     def set_alert_channel(self, guild_id: int, channel_id: int):
         """Set the alert channel for a server."""
@@ -420,6 +441,7 @@ class NWSAlertBot(commands.Bot):
                             if channel_id not in self.alert_message_ids:
                                 self.alert_message_ids[channel_id] = []
                             self.alert_message_ids[channel_id].append(message.id)
+                            self.save_message_tracking()
                             print(f"Posted alert to {channel.guild.name}: {event}")
                         except discord.DiscordException as e:
                             print(f"Error posting alert to channel {channel_id}: {e}")
@@ -448,6 +470,7 @@ class NWSAlertBot(commands.Bot):
                         print(f"Error deleting all-clear message {message_id}: {e}")
         # Clear tracked all-clear message IDs
         self.all_clear_message_ids.clear()
+        self.save_message_tracking()
 
     async def post_all_clear(self, alert_channels: list[int]):
         """Post an all-clear message when all weather alerts have expired."""
@@ -467,6 +490,7 @@ class NWSAlertBot(commands.Bot):
 
         # Clear tracked message IDs
         self.alert_message_ids.clear()
+        self.save_message_tracking()
 
         # Post the all-clear embed
         embed = discord.Embed(
@@ -493,6 +517,7 @@ class NWSAlertBot(commands.Bot):
                     if channel_id not in self.all_clear_message_ids:
                         self.all_clear_message_ids[channel_id] = []
                     self.all_clear_message_ids[channel_id].append(message.id)
+                    self.save_message_tracking()
                     print(f"Posted all-clear to {channel.guild.name}")
                 except discord.DiscordException as e:
                     print(f"Error posting all-clear to channel {channel_id}: {e}")
