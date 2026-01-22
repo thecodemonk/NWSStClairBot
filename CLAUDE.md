@@ -29,6 +29,7 @@ Main bot class that handles:
 - HTTP session management for NWS API calls
 - Per-server channel configuration (`server_config.json`)
 - Posted alert tracking to prevent duplicates (`posted_alerts.json`, capped at 500)
+- Message ID tracking for cleanup (`message_tracking.json`) - persists across restarts
 
 ### Alert Processing Flow
 
