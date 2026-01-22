@@ -66,7 +66,7 @@ All fetch methods hit `api.weather.gov`:
 
 10 commands registered - weather info (`/alerts`, `/forecast`, `/hourly`, `/outlook`, `/discussion`, `/status`) and server management (`/setchannel`, `/removechannel`, `/channelinfo`, `/test`, `/sync`, `/reset`).
 
-Management commands require `manage_guild` permission. `/sync` and `/reset` are restricted to server owner.
+Management commands require `manage_guild` permission.
 
 `/reset` clears all tracking data (posted alerts, message IDs, active alert state) and triggers an immediate alert recheck, causing current alerts to be reposted.
 

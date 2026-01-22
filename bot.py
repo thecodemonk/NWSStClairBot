@@ -892,13 +892,14 @@ async def slash_removechannel(interaction: discord.Interaction):
         await interaction.response.send_message("No alert channel was configured for this server.", ephemeral=True)
 
 
-@bot.tree.command(name="sync", description="Force sync slash commands (Bot owner only)")
+@bot.tree.command(name="sync", description="Force sync slash commands (Manage Server required)")
 @app_commands.guild_only()
 async def slash_sync(interaction: discord.Interaction):
     """Force sync slash commands to this guild."""
-    # Only allow the server owner or bot owner to use this
-    if interaction.user.id != interaction.guild.owner_id:
-        await interaction.response.send_message("Only the server owner can use this command.", ephemeral=True)
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message(
+            "You need Manage Server permission to use this command.", ephemeral=True
+        )
         return
 
     await interaction.response.defer(ephemeral=True)
@@ -912,13 +913,14 @@ async def slash_sync(interaction: discord.Interaction):
         await interaction.followup.send(f"Failed to sync: {e}")
 
 
-@bot.tree.command(name="reset", description="Clear all tracking data and repost current alerts (Server owner only)")
+@bot.tree.command(name="reset", description="Clear all tracking data and repost current alerts (Manage Server required)")
 @app_commands.guild_only()
 async def slash_reset(interaction: discord.Interaction):
     """Reset alert tracking and trigger immediate recheck."""
-    # Only allow the server owner to use this
-    if interaction.user.id != interaction.guild.owner_id:
-        await interaction.response.send_message("Only the server owner can use this command.", ephemeral=True)
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message(
+            "You need Manage Server permission to use this command.", ephemeral=True
+        )
         return
 
     await interaction.response.defer()
