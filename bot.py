@@ -64,6 +64,7 @@ ALERT_EMOJIS = {
     "Excessive Heat Warning": "\U0001F525",
     "Freeze Warning": "\U0001F976",
     "Frost Advisory": "\U0001F976",
+    "Cold Weather Advisory": "\U0001F976",
     "Dense Fog Advisory": "\U0001F32B\uFE0F",
     "Special Weather Statement": "\u2139\uFE0F",
 }
@@ -79,6 +80,7 @@ class NWSAlertBot(commands.Bot):
         self.session = None
         self.active_alert_ids = set()  # Track currently active alerts
         self.alert_message_ids = {}  # Track posted message IDs per channel for deletion
+        self.all_clear_message_ids = {}  # Track all-clear message IDs per channel for deletion
 
     def load_posted_alerts(self) -> set:
         """Load previously posted alert IDs from file."""
@@ -180,8 +182,11 @@ class NWSAlertBot(commands.Bot):
         for guild in self.guilds:
             print(f"  - {guild.name} (ID: {guild.id})")
 
-    async def fetch_alerts(self) -> list:
-        """Fetch current alerts from NWS API for our zone."""
+    async def fetch_alerts(self) -> list | None:
+        """Fetch current alerts from NWS API for our zone.
+
+        Returns list of alerts on success, None on API error.
+        """
         url = f"{NWS_API_BASE}/alerts/active/zone/{NWS_ZONE}"
         try:
             async with self.session.get(url) as response:
@@ -190,10 +195,10 @@ class NWSAlertBot(commands.Bot):
                     return data.get("features", [])
                 else:
                     print(f"NWS API returned status {response.status}")
-                    return []
+                    return None  # Return None on error, not empty list
         except Exception as e:
             print(f"Error fetching alerts: {e}")
-            return []
+            return None  # Return None on error, not empty list
 
     async def fetch_forecast(self) -> list:
         """Fetch the 7-day forecast from NWS API."""
@@ -356,6 +361,11 @@ class NWSAlertBot(commands.Bot):
 
         alerts = await self.fetch_alerts()
 
+        # If API error, skip this cycle entirely - don't trigger false all-clear
+        if alerts is None:
+            print("Skipping alert check due to API error")
+            return
+
         # Get current active alert IDs
         current_alert_ids = set()
         for alert in alerts:
@@ -363,12 +373,23 @@ class NWSAlertBot(commands.Bot):
             if alert_id:
                 current_alert_ids.add(alert_id)
 
-        # Check if all alerts have cleared
+        # Check if all alerts have cleared (only if we got a valid API response)
         if self.active_alert_ids and not current_alert_ids:
             await self.post_all_clear(alert_channels)
 
         # Update active alerts tracking
         self.active_alert_ids = current_alert_ids
+
+        # Track if we have any new alerts to post
+        has_new_alerts = any(
+            alert.get("properties", {}).get("id", "") not in self.posted_alerts
+            for alert in alerts
+            if alert.get("properties", {}).get("id", "")
+        )
+
+        # Delete all-clear messages if we're about to post new alerts
+        if has_new_alerts:
+            await self.delete_all_clear_messages(alert_channels)
 
         for alert in alerts:
             alert_id = alert.get("properties", {}).get("id", "")
@@ -411,6 +432,23 @@ class NWSAlertBot(commands.Bot):
                     self.save_posted_alerts()
                     print(f"Alert tracked: {alert_id}")
 
+    async def delete_all_clear_messages(self, alert_channels: list[int]):
+        """Delete any previously posted all-clear messages."""
+        for channel_id in alert_channels:
+            channel = self.get_channel(channel_id)
+            if channel and channel_id in self.all_clear_message_ids:
+                for message_id in self.all_clear_message_ids[channel_id]:
+                    try:
+                        message = await channel.fetch_message(message_id)
+                        await message.delete()
+                        print(f"Deleted all-clear message {message_id} from {channel.guild.name}")
+                    except discord.NotFound:
+                        print(f"All-clear message {message_id} already deleted or not found")
+                    except discord.DiscordException as e:
+                        print(f"Error deleting all-clear message {message_id}: {e}")
+        # Clear tracked all-clear message IDs
+        self.all_clear_message_ids.clear()
+
     async def post_all_clear(self, alert_channels: list[int]):
         """Post an all-clear message when all weather alerts have expired."""
         # Delete previous alert messages from each channel
@@ -450,7 +488,11 @@ class NWSAlertBot(commands.Bot):
             channel = self.get_channel(channel_id)
             if channel:
                 try:
-                    await channel.send(embed=embed)
+                    message = await channel.send(embed=embed)
+                    # Track all-clear message ID for later deletion
+                    if channel_id not in self.all_clear_message_ids:
+                        self.all_clear_message_ids[channel_id] = []
+                    self.all_clear_message_ids[channel_id].append(message.id)
                     print(f"Posted all-clear to {channel.guild.name}")
                 except discord.DiscordException as e:
                     print(f"Error posting all-clear to channel {channel_id}: {e}")
