@@ -13,6 +13,7 @@ ENV/
 # Data files (generated at runtime)
 server_config.json
 posted_alerts.json
+message_tracking.json
 
 # IDE
 .vscode/
