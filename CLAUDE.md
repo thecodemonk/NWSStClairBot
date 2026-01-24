@@ -62,6 +62,10 @@ All fetch methods hit `api.weather.gov`:
 - `/products/types/AFD/locations/{office}` - Area Forecast Discussion
 - `/products/types/HWO/locations/{office}` - Hazardous Weather Outlook
 
+### Radar Images
+
+Radar GIFs are fetched from `radar.weather.gov/ridge/standard/KDTX_loop.gif` and attached directly to Discord messages rather than embedded via URL. This bypasses Discord's external image proxy which can be unreliable. The `fetch_radar_image()` method downloads the GIF bytes, and messages use `attachment://radar.gif` to reference the attached file.
+
 ### Slash Commands
 
 10 commands registered - weather info (`/alerts`, `/forecast`, `/hourly`, `/outlook`, `/discussion`, `/status`) and server management (`/setchannel`, `/removechannel`, `/channelinfo`, `/test`, `/sync`, `/reset`).

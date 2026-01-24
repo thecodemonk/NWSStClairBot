@@ -10,7 +10,7 @@ import aiohttp
 import asyncio
 import os
 import json
-import time
+import io
 from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
@@ -293,6 +293,22 @@ class NWSAlertBot(commands.Bot):
             print(f"Error fetching hazardous outlook: {e}")
             return {}
 
+    async def fetch_radar_image(self) -> bytes | None:
+        """Fetch the radar GIF image from NWS.
+
+        Returns the image bytes on success, None on failure.
+        """
+        try:
+            async with self.session.get(NWS_RADAR_GIF) as response:
+                if response.status == 200:
+                    return await response.read()
+                else:
+                    print(f"Radar image fetch returned status {response.status}")
+                    return None
+        except Exception as e:
+            print(f"Error fetching radar image: {e}")
+            return None
+
     def create_alert_embed(self, alert: dict) -> discord.Embed:
         """Create a Discord embed for an alert."""
         props = alert.get("properties", {})
@@ -363,8 +379,8 @@ class NWSAlertBot(commands.Bot):
             inline=True
         )
 
-        # Add animated radar GIF (with cache-busting timestamp)
-        embed.set_image(url=f"{NWS_RADAR_GIF}?t={int(time.time())}")
+        # Set image to reference attached radar file
+        embed.set_image(url="attachment://radar.gif")
 
         # Add NWS attribution
         embed.set_footer(text="Source: National Weather Service")
@@ -429,13 +445,21 @@ class NWSAlertBot(commands.Bot):
                 if severity == "Extreme" or event in ping_events:
                     content = "@everyone **SEVERE WEATHER ALERT**"
 
+                # Fetch radar image to attach
+                radar_data = await self.fetch_radar_image()
+
                 # Post to all configured channels
                 posted_successfully = False
                 for channel_id in alert_channels:
                     channel = self.get_channel(channel_id)
                     if channel:
                         try:
-                            message = await channel.send(content=content, embed=embed)
+                            # Create file attachment for radar if available
+                            if radar_data:
+                                radar_file = discord.File(io.BytesIO(radar_data), filename="radar.gif")
+                                message = await channel.send(content=content, embed=embed, file=radar_file)
+                            else:
+                                message = await channel.send(content=content, embed=embed)
                             posted_successfully = True
                             # Track message ID for later deletion
                             if channel_id not in self.alert_message_ids:
@@ -505,14 +529,22 @@ class NWSAlertBot(commands.Bot):
             value=f"[View Live Radar]({NWS_RADAR_URL})",
             inline=True
         )
-        embed.set_image(url=f"{NWS_RADAR_GIF}?t={int(time.time())}")
+        embed.set_image(url="attachment://radar.gif")
         embed.set_footer(text="Source: National Weather Service")
+
+        # Fetch radar image to attach
+        radar_data = await self.fetch_radar_image()
 
         for channel_id in alert_channels:
             channel = self.get_channel(channel_id)
             if channel:
                 try:
-                    message = await channel.send(embed=embed)
+                    # Create file attachment for radar if available
+                    if radar_data:
+                        radar_file = discord.File(io.BytesIO(radar_data), filename="radar.gif")
+                        message = await channel.send(embed=embed, file=radar_file)
+                    else:
+                        message = await channel.send(embed=embed)
                     # Track all-clear message ID for later deletion
                     if channel_id not in self.all_clear_message_ids:
                         self.all_clear_message_ids[channel_id] = []
@@ -591,7 +623,13 @@ async def slash_alerts(interaction: discord.Interaction):
     await interaction.followup.send(f"**{len(alerts)} Active Alert(s) for St. Clair County:**")
     for alert in alerts[:5]:  # Limit to 5 to avoid spam
         embed = bot.create_alert_embed(alert)
-        await interaction.channel.send(embed=embed)
+        # Fetch and attach radar image
+        radar_data = await bot.fetch_radar_image()
+        if radar_data:
+            radar_file = discord.File(io.BytesIO(radar_data), filename="radar.gif")
+            await interaction.channel.send(embed=embed, file=radar_file)
+        else:
+            await interaction.channel.send(embed=embed)
 
 
 @bot.tree.command(name="forecast", description="Get the weather forecast for St. Clair County")
@@ -818,6 +856,8 @@ async def slash_test(interaction: discord.Interaction):
         )
         return
 
+    await interaction.response.defer()
+
     embed = discord.Embed(
         title="\u26A0\uFE0F Test Alert",
         description="This is a test alert to verify the bot is working correctly.",
@@ -831,9 +871,16 @@ async def slash_test(interaction: discord.Interaction):
         value=f"[View Live Radar]({NWS_RADAR_URL})",
         inline=True
     )
-    embed.set_image(url=f"{NWS_RADAR_GIF}?t={int(time.time())}")
+    embed.set_image(url="attachment://radar.gif")
     embed.set_footer(text="Source: Test - National Weather Service Bot")
-    await interaction.response.send_message(embed=embed)
+
+    # Fetch and attach radar image
+    radar_data = await bot.fetch_radar_image()
+    if radar_data:
+        radar_file = discord.File(io.BytesIO(radar_data), filename="radar.gif")
+        await interaction.followup.send(embed=embed, file=radar_file)
+    else:
+        await interaction.followup.send(embed=embed)
 
 
 @bot.tree.command(name="setchannel", description="Set the channel for weather alerts (Manage Server required)")
